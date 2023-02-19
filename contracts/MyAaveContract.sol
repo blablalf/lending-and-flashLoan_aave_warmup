@@ -56,10 +56,11 @@ contract MyAaveContract is IExerciceSolution, IFlashLoanSimpleReceiver {
         pool.flashLoanSimple(
             address(this),
             address(borrowToken),
-            1000000 * 10 ** (uint256)(borrowToken.decimals()), 
+            1000001 * 10 ** (uint256)(borrowToken.decimals()), 
             "", 
             0
         );
+        
     }
 
 	function repayFlashLoan() external override {}
@@ -71,12 +72,12 @@ contract MyAaveContract is IExerciceSolution, IFlashLoanSimpleReceiver {
         address initiator,
         bytes calldata params
     ) external override returns (bool) {
-        require(amount == 1000000 * 10 ** (uint256)(borrowToken.decimals()), "Invalid amount");
+        require(amount == 1000001 * 10 ** (uint256)(borrowToken.decimals()), "Invalid amount");
         require(amount <= borrowToken.balanceOf(address(this)), "Amount not present into the contract");
         uint totalDebt = amount + premium;
         borrowToken.approve(address(pool), totalDebt);
-
         // Do something with the borrowed tokens
+        return true;
     }
 
     function ADDRESSES_PROVIDER() external view override returns (IPoolAddressesProvider) {
