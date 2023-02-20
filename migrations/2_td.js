@@ -7,6 +7,7 @@ var ipool = artifacts.require("IPool.sol");
 var erc = artifacts.require("ERC20.sol");
 var iPoolAddressesProvider = artifacts.require("IPoolAddressesProvider.sol");
 var myAaveContract = artifacts.require("MyAaveContract.sol");
+var WithdrawContract = artifacts.require("WithdrawContract.sol");
 
 module.exports = (deployer, network, accounts) => {
     deployer.then(async () => {
@@ -29,10 +30,60 @@ module.exports = (deployer, network, accounts) => {
 		console.log("iPoolAddress " + iPoolAddress);
 
 		// Get the deployed instance of the IPool contract and the ERC20 contracts
-		IPool = await ipool.at(iPoolAddress);
+		Pool = await ipool.at(iPoolAddress);
 		DaiErc = await erc.at("0xBa8DCeD3512925e52FE67b1b5329187589072A55");
 		ADaiErc = await erc.at("0xADD98B0342e4094Ec32f3b67Ccfd3242C876ff7a");
 		UsdcErc = await erc.at("0x65aFADD39029741B3b8f0756952C74678c9cEC93");
+
+		daiBalance = await DaiErc.balanceOf(accounts[0]);
+		aDaiBalance = await ADaiErc.balanceOf(accounts[0]);
+		usdcBalance = await UsdcErc.balanceOf(accounts[0]);
+
+		console.log("daiBalance " + daiBalance);
+		console.log("aDaiBalance " + aDaiBalance);
+		console.log("usdcBalance " + usdcBalance);
+
+		// ex1_showIDepositedTokens
+        await DaiErc.approve(Pool.address, daiBalance);
+        await Pool.supply(DaiErc.address, daiBalance, accounts[0], 0);
+		await Evaluator.ex1_showIDepositedTokens();
+		myBalance = await TdErc20.balanceOf(accounts[0]);
+        console.log("My balance exercice 1 " + myBalance);
+
+		// ex2_showIBorrowedTokens
+		aDaiBalance = await ADaiErc.balanceOf(accounts[0]);
+		aDaiDecimalsAmount = await ADaiErc.decimals();
+		usdcDecimalsAmount = await UsdcErc.decimals();
+		usdcAmountToBorrow = Math.floor(new BigNumber(aDaiBalance*0.7/10**(aDaiDecimalsAmount - usdcDecimalsAmount)));
+        await Pool.borrow(UsdcErc.address, usdcAmountToBorrow, 2, 0, accounts[0]);
+		await Evaluator.ex2_showIBorrowedTokens();
+		myBalance = await TdErc20.balanceOf(accounts[0]);
+        console.log("My balance exercice 2 " + myBalance);
+
+		// ex3_showIRepaidTokens
+		usdcBalance = await UsdcErc.balanceOf(accounts[0]);
+        await UsdcErc.approve(Pool.address, usdcBalance);
+        await Pool.repay(UsdcErc.address, usdcBalance, 2, accounts[0]);
+		await Evaluator.ex3_showIRepaidTokens();
+		myBalance = await TdErc20.balanceOf(accounts[0]);
+        console.log("My balance exercice 3 " + myBalance);
+
+		// ex4_showIWithdrewTokens
+		aDaiBalance = await ADaiErc.balanceOf(accounts[0]);
+		console.log("aDaiBalance " + aDaiBalance);
+		// I can't use the withdraw function of the pool because the amounnt od aToken continue to increase between 2 calls
+		WithdrawContract = await WithdrawContract.new(DaiErc.address, ADaiErc.address, IPoolAddressesProvider.address);
+		// So my contract WithdrawContract will do it for me but I need to transfer the aToken to it
+		do {
+			await ADaiErc.transfer(WithdrawContract.address, aDaiBalance);
+			aDaiBalance = await ADaiErc.balanceOf(accounts[0]);
+			console.log("aDaiBalance " + aDaiBalance);
+		} while (aDaiBalance > 0);
+		// Now I can withdraw the dai
+		await WithdrawContract.doWithdraw();
+		await Evaluator.ex4_showIWithdrewTokens();
+		myBalance = await TdErc20.balanceOf(accounts[0]);
+        console.log("My balance exercice 4 " + myBalance);
 
 		// Init the aave contract with dai address and IPoolAddressesProvider address
 		MyAaveContract = await myAaveContract.new(DaiErc.address, ADaiErc.address, UsdcErc.address, IPoolAddressesProvider.address);
